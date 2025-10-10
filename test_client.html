@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Conversation Coach Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+        }
+        #suggestions {
+            background: #f0f0f0;
+            padding: 10px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        #transcript {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .suggestion {
+            background: #e3f2fd;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .transcript-entry {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .user {
+            color: #1976d2;
+        }
+        .coach {
+            color: #388e3c;
+        }
+        #status {
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ Conversation Coach Test Client</h1>
+
+    <div class="section">
+        <h2>Setup</h2>
+        <input type="text" id="user_name" placeholder="Your name" value="Alex">
+        <textarea id="context" placeholder="Context (e.g., Networking at hackathon)">Negotiating my salary for a job offer I've just received</textarea>
+        <textarea id="goal" placeholder="Goal (e.g., Be friendly and approachable)">Come across as fair but firm and advocate for myself, coming to a fair offer that's win-win for both parties. Ideally £150k, lowest I'm willing to accept is £100k.</textarea>
+        <button onclick="createSession()">Create Session</button>
+        <div id="status">Not connected</div>
+    </div>
+
+    <div class="section">
+        <h2>Live Session</h2>
+        <button id="startBtn" onclick="startSession()" disabled>Start Conversation</button>
+        <button id="stopBtn" onclick="stopSession()" disabled>Stop</button>
+        <button id="finishBtn" onclick="finishSession()" disabled>Finish & Get Feedback</button>
+
+        <h3>💡 Suggestions (Live Coaching)</h3>
+        <div id="suggestions"></div>
+
+        <h3>📝 Transcript</h3>
+        <div id="transcript"></div>
+    </div>
+
+    <div class="section" id="results" style="display:none;">
+        <h2>Results</h2>
+        <div id="feedback"></div>
+    </div>
+
+    <script>
+        let sessionId = null;
+        let ws = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+
+        function updateStatus(message, color = '#fff3cd') {
+            document.getElementById('status').innerHTML = message;
+            document.getElementById('status').style.background = color;
+        }
+
+        async function createSession() {
+            const data = {
+                user_name: document.getElementById('user_name').value,
+                context: document.getElementById('context').value,
+                goal: document.getElementById('goal').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:8000/session', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                sessionId = result.session_id;
+                updateStatus(`✅ ${result.message}`, '#d4edda');
+                document.getElementById('startBtn').disabled = false;
+            } catch (e) {
+                updateStatus('❌ Error creating session: ' + e.message, '#f8d7da');
+            }
+        }
+
+        async function startSession() {
+            if (!sessionId) {
+                alert('Create a session first!');
+                return;
+            }
+
+            try {
+                // Connect WebSocket
+                ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
+
+                ws.onopen = () => {
+                    updateStatus('🎙️ Connected! Recording audio...', '#d1ecf1');
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    document.getElementById('finishBtn').disabled = false;
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'suggestion') {
+                        // Display coaching suggestion
+                        const div = document.createElement('div');
+                        div.className = 'suggestion';
+                        div.innerHTML = `<strong>💡 Coach:</strong> ${data.text}`;
+                        document.getElementById('suggestions').appendChild(div);
+                        document.getElementById('suggestions').scrollTop = document.getElementById('suggestions').scrollHeight;
+                    }
+                    else if (data.type === 'audio') {
+                        // Play audio suggestion in user's ear
+                        playAudioBase64(data.data, data.format || 'mp3');
+                    }
+                    else if (data.type === 'transcript') {
+                        // Show transcript
+                        const div = document.createElement('div');
+                        div.className = `transcript-entry ${data.speaker}`;
+                        div.innerHTML = `<strong>${data.speaker}:</strong> ${data.text}`;
+                        document.getElementById('transcript').appendChild(div);
+                        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+                    }
+                    else if (data.type === 'error') {
+                        updateStatus('❌ Error: ' + data.message, '#f8d7da');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    updateStatus('❌ WebSocket error', '#f8d7da');
+                    console.error('WebSocket error:', error);
+                };
+
+                ws.onclose = () => {
+                    updateStatus('Connection closed', '#fff3cd');
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                };
+
+                // Start recording audio using Web Audio API for PCM
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 16000
+                    }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        // Get PCM data
+                        const inputData = e.inputBuffer.getChannelData(0);
+
+                        // Convert Float32Array to Int16Array (PCM 16-bit)
+                        const pcm16 = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, inputData[i]));
+                            pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+
+                        // Send PCM audio to backend
+                        ws.send(pcm16.buffer);
+                    }
+                };
+
+            } catch (e) {
+                updateStatus('❌ Error starting session: ' + e.message, '#f8d7da');
+                console.error(e);
+            }
+        }
+
+        function stopSession() {
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            if (ws) {
+                ws.send(JSON.stringify({type: 'stop'}));
+                ws.close();
+            }
+            updateStatus('⏸️ Session stopped', '#fff3cd');
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        async function finishSession() {
+            stopSession();
+
+            try {
+                const response = await fetch(`http://localhost:8000/session/${sessionId}/finish`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                // Display results
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('feedback').innerHTML = `
+                    <h3>⭐ Two Stars</h3>
+                    <ul>
+                        <li>${result.stars[0]}</li>
+                        <li>${result.stars[1]}</li>
+                    </ul>
+
+                    <h3>🌟 One Wish</h3>
+                    <p>${result.wish}</p>
+
+                    <h3>📊 Filler Percentage</h3>
+                    <p><strong>${result.filler_percentage}%</strong></p>
+
+                    <h3>💡 Key Takeaways</h3>
+                    <ul>
+                        ${result.takeaways.map(t => `<li>${t}</li>`).join('')}
+                    </ul>
+
+                    <h3>📋 Summary</h3>
+                    <ul>
+                        ${result.summary_bullets.map(b => `<li>${b}</li>`).join('')}
+                    </ul>
+                `;
+
+                updateStatus('✅ Feedback generated!', '#d4edda');
+                document.getElementById('finishBtn').disabled = true;
+
+            } catch (e) {
+                updateStatus('❌ Error getting feedback: ' + e.message, '#f8d7da');
+            }
+        }
+
+        async function playAudioBase64(base64Audio, format = 'mp3') {
+            try {
+                // Decode base64 to audio data
+                const binaryString = atob(base64Audio);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // Create blob and play (works for MP3, etc)
+                const blob = new Blob([bytes], { type: `audio/${format}` });
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                audio.play().catch(e => console.error('Error playing audio:', e));
+
+                // Cleanup
+                audio.onended = () => URL.revokeObjectURL(url);
+
+            } catch (e) {
+                console.error('Error playing audio:', e);
+            }
+        }
+    </script>
+</body>
+</html>
