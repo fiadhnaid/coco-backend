@@ -54,7 +54,7 @@ class AIService:
                 prompt_parts.append(f"Context: {context}")
             if goal:
                 prompt_parts.append(f"Goal: {goal}")
-            transcription_prompt = "Okay, here's what I'm, like, thinking.. You're going to transcribe this conversation. Here's some context on the conversation ".join(prompt_parts) + "."
+            transcription_prompt = "Okay, here's what I'm, like, thinking.. You're going to transcribe this conversation including all filler words used e.g. 'like, uhm, etc.'. Here's some context on the conversation ".join(prompt_parts) + "."
 
         # Transcribe with optional prompt for better accuracy
         transcription = self.openai_client.audio.transcriptions.create(
@@ -89,7 +89,7 @@ User Details:
 Your task is to analyze the recent conversation and provide ONE short, actionable coaching tip/prompt/guidance (max 10 words) to help them achieve their goal with the conversation. Be encouraging and specific, remembering this is streaming in real time and should help them navigate the conversation as it's happening. Make sure your advice is specific to the conversation so far and their goal for the conversation."""
 
         # Build user message with conversation history
-        conversation_text = '\n'.join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-6:]])
+        conversation_text = '\n'.join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-50:]])
         user_message = f"""Recent conversation:
 {conversation_text}
 
