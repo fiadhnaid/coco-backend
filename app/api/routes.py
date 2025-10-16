@@ -12,7 +12,9 @@ async def create_session(session_data: SessionCreate) -> SessionResponse:
     session_id = session_manager.create_session(
         context=session_data.context,
         goal=session_data.goal,
-        user_name=session_data.user_name
+        user_name=session_data.user_name,
+        participants=session_data.participants,
+        tone=session_data.tone
     )
 
     return SessionResponse(
@@ -79,7 +81,9 @@ async def websocket_handler(websocket: WebSocket, session_id: str):
                                     user_name=session.user_name,
                                     context=session.context,
                                     goal=session.goal,
-                                    conversation_history=session.conversation_history
+                                    conversation_history=session.conversation_history,
+                                    participants=session.participants,
+                                    tone=session.tone
                                 )
 
                                 print(f"🤖 COACH: {suggestion}")
@@ -166,7 +170,9 @@ async def finish_session(session_id: str) -> FinishResponse:
         user_name=session.user_name,
         context=session.context,
         goal=session.goal,
-        transcript=session.transcript
+        transcript=session.transcript,
+        participants=session.participants,
+        tone=session.tone
     )
 
     return FinishResponse(

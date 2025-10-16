@@ -9,10 +9,10 @@ class SessionManager:
     def __init__(self):
         self._sessions: Dict[str, Session] = {}
 
-    def create_session(self, context: str, goal: str, user_name: str) -> str:
+    def create_session(self, context: str, goal: str, user_name: str, participants: str = "", tone: str = "") -> str:
         """Create a new session and return its ID"""
         session_id = str(uuid.uuid4())
-        session = Session(session_id, context, goal, user_name)
+        session = Session(session_id, context, goal, user_name, participants, tone)
         self._sessions[session_id] = session
         return session_id
 

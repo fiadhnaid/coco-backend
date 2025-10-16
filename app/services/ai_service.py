@@ -42,13 +42,17 @@ class AIService:
         user_name: str,
         context: str,
         goal: str,
-        conversation_history: List[Dict]
+        conversation_history: List[Dict],
+        participants: str = "",
+        tone: str = ""
     ) -> str:
         """Generate a coaching suggestion using GPT-4"""
         prompt = f"""You are a conversation coach helping {user_name}.
 
-Context: {context}
+Conversation Details: {context}
 Goal: {goal}
+{f"Participants: {participants}" if participants else ""}
+{f"Desired Tone: {tone}" if tone else ""}
 
 Recent conversation:
 {' '.join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-6:]])}
@@ -91,7 +95,9 @@ Provide ONE short, actionable coaching tip (max 10 words) to help them achieve t
         user_name: str,
         context: str,
         goal: str,
-        transcript: List[Dict]
+        transcript: List[Dict],
+        participants: str = "",
+        tone: str = ""
     ) -> Dict:
         """Analyze session and generate feedback"""
         transcript_text = "\n".join([
@@ -116,8 +122,10 @@ Provide ONE short, actionable coaching tip (max 10 words) to help them achieve t
 
 User Details:
 - Name: {user_name}
-- Context: {context}
+- Conversation Details: {context}
 - Goal: {goal}
+{f"- Participants: {participants}" if participants else ""}
+{f"- Desired Tone: {tone}" if tone else ""}
 
 Full Transcript:
 {transcript_text}

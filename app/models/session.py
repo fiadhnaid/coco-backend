@@ -8,6 +8,8 @@ class SessionCreate(BaseModel):
     context: str
     goal: str
     user_name: str
+    participants: str = ""
+    tone: str = ""
 
 
 class SessionResponse(BaseModel):
@@ -35,11 +37,13 @@ class FinishResponse(BaseModel):
 
 class Session:
     """In-memory session model"""
-    def __init__(self, session_id: str, context: str, goal: str, user_name: str):
+    def __init__(self, session_id: str, context: str, goal: str, user_name: str, participants: str = "", tone: str = ""):
         self.session_id = session_id
         self.context = context
         self.goal = goal
         self.user_name = user_name
+        self.participants = participants
+        self.tone = tone
         self.transcript: List[Dict] = []
         self.audio_buffer = b""
         self.last_suggestion_time = datetime.utcnow()
