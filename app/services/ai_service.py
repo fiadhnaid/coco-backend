@@ -30,7 +30,7 @@ class AIService:
 
         # Transcribe
         transcription = self.openai_client.audio.transcriptions.create(
-            model="whisper-1",
+            model="gpt-4o-transcribe",
             file=wav_buffer,
             language="en"
         )
@@ -47,26 +47,29 @@ class AIService:
         tone: str = ""
     ) -> str:
         """Generate a coaching suggestion using GPT-4"""
-        prompt = f"""You are a conversation coach helping {user_name}.
+        # Build system prompt with user context and information
+        system_prompt = f"""You are an expert conversation coach helping {user_name} achieve their desired outcome from this conversation by coaching, prompting and guiding them in real time during the conversation.
 
-Conversation Details: {context}
-Goal: {goal}
-{f"Participants: {participants}" if participants else ""}
-{f"Desired Tone: {tone}" if tone else ""}
+User Details:
+- Conversation Details: {context}
+- Goal: {goal}
+{f"- Participants: {participants}" if participants else ""}
+{f"- Desired Tone: {tone}" if tone else ""}
 
-Recent conversation:
-{' '.join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-6:]])}
+Your task is to analyze the recent conversation and provide ONE short, actionable coaching tip/prompt/guidance (max 10 words) to help them achieve their goal with the conversation. Be encouraging and specific, remembering this is streaming in real time and should help them navigate the conversation as it's happening. Make sure your advice is specific to the conversation so far and their goal for the conversation."""
 
-Provide ONE short, actionable coaching tip (max 10 words) to help them achieve their goal. Be encouraging and specific."""
+        # Build user message with conversation history
+        conversation_text = '\n'.join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-6:]])
+        user_message = f"""Recent conversation:
+{conversation_text}
+
+What coaching tip would help {user_name} right now?"""
 
         response = self.openai_client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-5-nano",
             messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful conversation coach. Give brief, actionable tips."
-                },
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
             ],
             max_tokens=50,
             temperature=0.7
@@ -134,7 +137,7 @@ Analyze ONLY the user's speech (name: {user_name}). Provide:
 
 1. Two stars (2 things they did well)
 2. One wish (1 area for improvement)
-3. Filler percentage (% of their words that were filler like "um", "uh", "like", "you know")
+3. Filler percentage (% of their words that were fillers e.g. "um", "uh", "like", "you know")
 4. Three key takeaways
 5. 3-5 summary bullets of the conversation
 
@@ -149,11 +152,11 @@ Return as JSON:
 """
 
         response = self.openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a conversation coach providing feedback. Always respond with valid JSON."
+                    "content": "You are an expert conversation coach providing feedback on a conversation the user has just had. Your goal is to encourage and help them improve their conversation skills for future conversations, bearing in mind their goal for the conversation and how it went. Only give advice helpful to the live conversation (e.g. telling them to research is not helpful as they are in the conversation currently). Always respond with valid JSON."
                 },
                 {"role": "user", "content": prompt}
             ],
