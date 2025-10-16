@@ -17,7 +17,11 @@ class Settings:
     PORT: int = 8000
 
     # CORS
-    CORS_ORIGINS: list = ["*"]
+    CORS_ORIGINS: list = [
+        os.getenv("FRONTEND_URL", "http://localhost:3000"),
+        "http://localhost:3000",
+        "https://*.vercel.app",  # Allow all Vercel preview deployments
+    ]
 
     # App
     APP_NAME: str = "COCO - Conversation Coach API"

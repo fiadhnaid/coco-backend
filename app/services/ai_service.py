@@ -101,8 +101,6 @@ What coaching tip would help {user_name} right now?"""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            max_tokens=50,
-            temperature=0.7
         )
 
         return response.choices[0].message.content.strip()
@@ -190,7 +188,6 @@ Return as JSON:
                 },
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
             response_format={"type": "json_object"}
         )
 
