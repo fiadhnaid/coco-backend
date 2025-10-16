@@ -20,7 +20,8 @@ class Settings:
     CORS_ORIGINS: list = [
         os.getenv("FRONTEND_URL", "http://localhost:3000"),
         "http://localhost:3000",
-        "https://*.vercel.app",  # Allow all Vercel preview deployments
+        "http://localhost:5173",  # Vite dev server
+        "*",  # Allow all origins (use FRONTEND_URL env var in production for security)
     ]
 
     # App

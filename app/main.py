@@ -26,6 +26,11 @@ def create_app() -> FastAPI:
     async def root():
         return {"status": f"{settings.APP_NAME} running (OpenAI mode)"}
 
+    @app.get("/health")
+    async def health():
+        """Health check endpoint"""
+        return {"status": "healthy"}
+
     @app.post("/session", response_model=SessionResponse)
     async def create_session(session_data: SessionCreate):
         """Create a new conversation session"""
