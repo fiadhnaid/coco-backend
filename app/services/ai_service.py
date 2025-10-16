@@ -15,8 +15,25 @@ class AIService:
         self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
-    def transcribe_audio(self, audio_data: bytes) -> str:
-        """Transcribe audio using OpenAI Whisper"""
+    def transcribe_audio(
+        self,
+        audio_data: bytes,
+        prompt: str = None,
+        context: str = None,
+        goal: str = None
+    ) -> str:
+        """
+        Transcribe audio using OpenAI's gpt-4o-mini-transcribe model.
+
+        Args:
+            audio_data: Raw PCM audio bytes
+            prompt: Optional context to improve transcription accuracy
+            context: Conversation context (used to build prompt)
+            goal: User's goal (used to build prompt)
+
+        Returns:
+            Transcribed text
+        """
         # Convert PCM to WAV format
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, 'wb') as wav_file:
@@ -28,14 +45,27 @@ class AIService:
         wav_buffer.seek(0)
         wav_buffer.name = "audio.wav"
 
-        # Transcribe
+        # Build context prompt if available to improve accuracy
+        # Per OpenAI docs: prompts help with uncommon words, acronyms, and context
+        transcription_prompt = prompt
+        if not transcription_prompt and (context or goal):
+            prompt_parts = []
+            if context:
+                prompt_parts.append(f"Context: {context}")
+            if goal:
+                prompt_parts.append(f"Goal: {goal}")
+            transcription_prompt = "Okay, here's what I'm, like, thinking.. You're going to transcribe this conversation. Here's some context on the conversation ".join(prompt_parts) + "."
+
+        # Transcribe with optional prompt for better accuracy
         transcription = self.openai_client.audio.transcriptions.create(
-            model="gpt-4o-transcribe",
+            model="gpt-4o-mini-transcribe",
             file=wav_buffer,
-            language="en"
+            language="en",
+            response_format="text",
+            prompt=transcription_prompt if transcription_prompt else None
         )
 
-        return transcription.text.strip()
+        return transcription.strip()
 
     def generate_coaching_suggestion(
         self,
