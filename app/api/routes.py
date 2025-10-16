@@ -37,9 +37,9 @@ async def websocket_handler(websocket: WebSocket, session_id: str):
         async def process_audio_and_generate_suggestions():
             """Background task to process audio and generate suggestions"""
             while session.active:
-                await asyncio.sleep(3)  # Process every 3 seconds
+                await asyncio.sleep(1.5)  # Process every 1.5 seconds (faster transcription)
 
-                if len(session.audio_buffer) > 16000 * 2:  # At least 1 second of audio
+                if len(session.audio_buffer) > 16000 * 1:  # At least 0.5 seconds of audio
                     print(f"🎤 Processing audio buffer ({len(session.audio_buffer)} bytes)")
 
                     try:
@@ -71,7 +71,7 @@ async def websocket_handler(websocket: WebSocket, session_id: str):
 
                             # Generate coaching suggestion every ~10 seconds
                             time_since_last = (datetime.utcnow() - session.last_suggestion_time).seconds
-                            if time_since_last >= 8 and len(session.conversation_history) >= 2:
+                            if time_since_last >= 4 and len(session.conversation_history) >= 1:
                                 print("💡 Generating coaching suggestion...")
 
                                 # Generate suggestion with GPT
